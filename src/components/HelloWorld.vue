@@ -35,7 +35,7 @@ const login = async () => {
 
 const callPerson = async () => {
   console.log(token.value);
-  const res2 = await axios.post(
+  const res = await axios.post(
     `${filters.baseUrl}/api/v1/general/client-id`,
     null,
     {
@@ -44,7 +44,19 @@ const callPerson = async () => {
       },
     }
   );
-  myName.value = res2.data;
+
+  const callResponse = await axios.post(
+    `${filters.baseUrl}/api/v1/general/make-call-by-client`,
+    null,
+    {
+      headers: {
+        Authorization: `Bearer ${token.value}`,
+      },
+    }
+  );
+  console.log(callResponse);
+
+  myName.value = res.data;
 
   const device = new Device(twilioToken.value, {
     debug: true,
