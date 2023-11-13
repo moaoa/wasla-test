@@ -14,7 +14,8 @@ const filters = reactive({
   personToCallName: "",
 });
 
-const token = ref("");
+const myName = ref("");
+const token = ref(localStorage.getItem("token") || "");
 const twilioToken = ref("");
 
 const login = async () => {
@@ -23,17 +24,32 @@ const login = async () => {
       phone: filters.phone,
       password: filters.password,
     });
+    localStorage.setItem("token", res.data.token);
+
     token.value = res.data.token;
     twilioToken.value = JSON.parse(res.data.twilio_token).token;
-    console.log(twilioToken.value);
-    console.log(token.value);
   } catch (error) {
     console.log(error);
   }
 };
 
-const callPerson = () => {
-  const device = new Device(twilioToken.value);
+const callPerson = async () => {
+  console.log(token.value);
+  const res2 = await axios.post(
+    `${filters.baseUrl}/api/v1/general/client-id`,
+    null,
+    {
+      headers: {
+        Authorization: `Bearer ${token.value}`,
+      },
+    }
+  );
+  myName.value = res2.data;
+
+  const device = new Device(twilioToken.value, {
+    debug: true,
+    codecPreferences: ["opus", "pcmu"],
+  });
 
   // Add event listeners for device events
   device.on("ready", () => {
@@ -50,8 +66,8 @@ const callPerson = () => {
 
   // Make a call
   const params = {
-    To: "PHONE_NUMBER_TO_CALL",
-    From: "YOUR_TWILIO_PHONE_NUMBER",
+    To: "client:" + filters.personToCallName,
+    // From: myName.value,
     // Add any additional parameters as needed
   };
   const connection = device.connect(params);
