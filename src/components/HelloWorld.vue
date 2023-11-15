@@ -16,7 +16,9 @@ const filters = reactive({
 
 const myName = ref("");
 const token = ref(localStorage.getItem("token") || "");
-const twilioToken = ref("");
+const twilioToken = ref(localStorage.getItem("twilioToken") || "");
+
+let device: any;
 
 const login = async () => {
   try {
@@ -25,29 +27,51 @@ const login = async () => {
       password: filters.password,
     });
     localStorage.setItem("token", res.data.token);
+    localStorage.setItem("twilioToken", res.data.twilio_token);
 
     token.value = res.data.token;
-    twilioToken.value = JSON.parse(res.data.twilio_token).token;
+    twilioToken.value = res.data.twilio_token;
+
+    device = new Device(twilioToken.value);
+
+    device.on("ready", () => {
+      console.log("Device is ready");
+    });
+
+    device.on("error", (error: any) => {
+      console.error("Error:", error);
+    });
+
+    device.on("incoming", (connection: any) => {
+      console.log("Incoming connection:", connection);
+    });
+
+    const res2 = await axios.post(
+      `${filters.baseUrl}/api/v1/general/client-id`,
+      null,
+      {
+        headers: {
+          Authorization: `Bearer ${token.value}`,
+        },
+      }
+    );
+    myName.value = res.data;
+    console.log("me: ", res2.data);
+
+    console.log(res.data);
   } catch (error) {
     console.log(error);
   }
 };
 
-const callPerson = async () => {
+const callClient = async () => {
   console.log(token.value);
-  const res = await axios.post(
-    `${filters.baseUrl}/api/v1/general/client-id`,
-    null,
-    {
-      headers: {
-        Authorization: `Bearer ${token.value}`,
-      },
-    }
-  );
 
   const callResponse = await axios.post(
     `${filters.baseUrl}/api/v1/general/make-call-by-client`,
-    null,
+    {
+      to: filters.personToCallName,
+    },
     {
       headers: {
         Authorization: `Bearer ${token.value}`,
@@ -56,33 +80,17 @@ const callPerson = async () => {
   );
   console.log(callResponse);
 
-  myName.value = res.data;
-
-  const device = new Device(twilioToken.value, {
-    debug: true,
-    codecPreferences: ["opus", "pcmu"],
-  });
-
   // Add event listeners for device events
-  device.on("ready", () => {
-    console.log("Device is ready");
-  });
-
-  device.on("error", (error: any) => {
-    console.error("Error:", error);
-  });
-
-  device.on("incoming", (connection: any) => {
-    console.log("Incoming connection:", connection);
-  });
 
   // Make a call
   const params = {
-    To: "client:" + filters.personToCallName,
-    // From: myName.value,
-    // Add any additional parameters as needed
+    // To: "client:" + filters.personToCallName,
+    To: filters.personToCallName,
   };
-  const connection = device.connect(params);
+
+  console.log("calling: ", device);
+  console.log(params);
+  device.connect(params);
 };
 </script>
 
@@ -97,7 +105,10 @@ const callPerson = async () => {
     <div>
       <label>phone</label>
       <br />
-      <input type="text" v-model="filters.phone" />
+      <select v-model="filters.phone">
+        <option value="+218920920110">+218920920110</option>
+        <option value="+218912245321">+218912245321</option>
+      </select>
     </div>
     <div>
       <label>password</label>
@@ -111,7 +122,7 @@ const callPerson = async () => {
     <h1>call</h1>
     <label>person to call</label>
     <input type="text" v-model="filters.personToCallName" />
-    <button @click="callPerson">call</button>
+    <button @click="callClient">call</button>
   </div>
 </template>
 
